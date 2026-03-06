@@ -76,16 +76,8 @@ for (warehouse, product), group in groups:
     ts = group.set_index("month")["containers_shipped"]
 
     try:
-        # BACKTEST: last 3 months for comparison
-        if len(ts) > 6:
-            train = ts[:-3]
-            test = ts[-3:]
-        else:
-            train = ts
-            test = None
-
         model = SARIMAX(
-            train,
+            ts,
             #p: The number of lag observations included in the model (non-seasonal AR component).
             #d: The number of times the data has been differenced to make it stationary (non-seasonal differencing).
             #q: The size of the moving average window (non-seasonal MA component).
@@ -101,13 +93,16 @@ for (warehouse, product), group in groups:
 
         model_fit = model.fit(disp=False)
 
+        # In-sample predictions (to compare predicted vs actual for all months)
+        pred_in_sample = model_fit.get_prediction(start=ts.index[0], end=ts.index[-1])
+        pred_mean = pred_in_sample.predicted_mean
+        pred_mean = pred_mean.apply(lambda x: max(0, int(round(x))))
+
         # Forecast next 3 months
-        prediction = model_fit.forecast(steps=3)
+        future_prediction = model_fit.forecast(steps=3)
+        future_prediction = future_prediction.apply(lambda x: max(0, int(round(x))))
 
-        # CLIP negative predictions
-        prediction = prediction.apply(lambda x: max(0, int(round(x))))
-
-        for date, value in prediction.items():
+        for date, value in future_prediction.items():
             forecasts.append({
                 "warehouse": warehouse,
                 "product": product,
@@ -115,13 +110,12 @@ for (warehouse, product), group in groups:
                 "predicted_containers": value
             })
 
-        # Plot actual vs predicted (backtest) if test exists
+        # Plot actual vs predicted (in-sample) and forecast
         plt.figure(figsize=(8, 3))
         ts.plot(label="Actual", marker='o')
-        prediction.plot(label="Forecast", marker='x')
-        if test is not None:
-            test.plot(label="Backtest Actual", marker='s')
-        plt.title(f"{warehouse} - {product} Forecast & Backtest")
+        pred_mean.plot(label="Predicted (In-Sample)", marker='x')
+        future_prediction.plot(label="Forecast Next 3 Months", marker='s')
+        plt.title(f"{warehouse} - {product} Forecast & In-Sample")
         plt.xlabel("Month")
         plt.ylabel("Containers Shipped")
         plt.legend()
