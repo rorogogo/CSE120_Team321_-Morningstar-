@@ -1,3 +1,5 @@
+#Note for future workers on this code, SARIMAX is being used but only SARIMA features are currently utilized. If we have time please work on adding the exogenous features to the model, which we may have to talk to the cilent for more data on what those features could be.
+
 import sqlite3
 import pandas as pd
 import numpy as np
