@@ -2,7 +2,9 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 from statsmodels.tsa.statespace.sarimax import SARIMAX
+import os 
 
 #Seasonal AutoRegressive Integrated Moving Average with eXogenous regressors (SARIMAX)
 #https://medium.com/biased-algorithms/sarima-models-explained-5e3274087fe3
@@ -63,6 +65,13 @@ print("Running forecasting model for next 3 months...")
 
 forecasts = []
 
+# create folder for plots
+plot_folder = "forecast_plots"
+os.makedirs(plot_folder, exist_ok=True)
+
+pdf_path = os.path.join(plot_folder, "all_forecasts.pdf")
+pdf = PdfPages(pdf_path)
+
 groups = monthly_demand.groupby(["warehouse", "product"])
 
 for (warehouse, product), group in groups:
@@ -110,7 +119,7 @@ for (warehouse, product), group in groups:
                 "predicted_containers": value
             })
 
-        # Plot actual vs predicted (in-sample) and forecast
+        # Plot actual vs predicted (in-sample) and forecast, save to PDF
         plt.figure(figsize=(8, 3))
         ts.plot(label="Actual", marker='o')
         pred_mean.plot(label="Predicted (In-Sample)", marker='x')
@@ -120,11 +129,14 @@ for (warehouse, product), group in groups:
         plt.ylabel("Containers Shipped")
         plt.legend()
         plt.tight_layout()
-        plt.show()
+        pdf.savefig()
+        plt.close()
 
     except Exception as e:
         print(f"Skipping {warehouse} - {product} due to error: {e}")
         continue
+
+pdf.close()
 
 forecast_df = pd.DataFrame(forecasts)
 
